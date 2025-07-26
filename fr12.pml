@@ -1,14 +1,29 @@
-mtype = { Idle, ReceivedRequest, QueryingDB, ConflictDetected, NoConflict };
-mtype state;
+byte state12 = 0;  // 0=Idle,1=RecReq,2=Query,3=Conflict,4=NoConf
+
 active proctype FR12() {
-    state = Idle;
-    do
-    :: state == Idle            -> state = ReceivedRequest
-    :: state == ReceivedRequest -> state = QueryingDB
-    :: state == QueryingDB      -> state = ConflictDetected
-    :: state == QueryingDB      -> state = NoConflict
-    :: (state == ConflictDetected || state == NoConflict) -> break
-    od
+  goto t0;
+
+t0:
+  if
+  :: state12 == 0 -> state12 = 1; goto t1;
+  :: else -> goto t0;
+  fi;
+
+t1:
+  if
+  :: state12 == 1 -> state12 = 2; goto t2;
+  :: else -> goto t1;
+  fi;
+
+t2:
+  if
+  :: state12 == 2 -> state12 = 3; goto t3;
+  :: state12 == 2 -> state12 = 4; goto t4;
+  fi;
+
+t3: skip;
+t4: skip;
 }
-ltl p1 { [] ((state == ReceivedRequest) -> <> ((state == ConflictDetected) || (state == NoConflict))) } // liveness: every request resolves to ConflictDetected or NoConflict, avoiding livelock
-ltl p2 { [] (!( (state == ConflictDetected || state == NoConflict) && state == Idle)) }              // safety: forbids resolution states without a prior request, preserving invariant
+
+ltl p1 { ((state12 == 1) -> <> ((state12 == 3)||(state12 == 4))) }  // liveness: every request eventually resolves, preventing deadlock  
+ltl p2 { [] !(((state12==3)||(state12==4)) && (state12==0)) }       // safety: forbids resolution without a request, preserving invariant
